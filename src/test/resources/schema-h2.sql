@@ -109,6 +109,66 @@ CREATE TABLE IF NOT EXISTS t_sys_oper_log (
   PRIMARY KEY (id)
 );
 
+CREATE TABLE IF NOT EXISTS t_heri_cus_book (
+  id BIGINT NOT NULL,
+  book_no VARCHAR(40),
+  biz_no VARCHAR(64),
+  source VARCHAR(64),
+  declare_rows INT,
+  in_rows INT DEFAULT 0,
+  signed_rows INT DEFAULT 0,
+  back_rows INT DEFAULT 0,
+  received_flag INT DEFAULT 0,
+  status INT DEFAULT 0,
+  del_flag INT DEFAULT 0,
+  create_by VARCHAR(64),
+  create_time DATETIME,
+  update_by VARCHAR(64),
+  update_time DATETIME,
+  remark VARCHAR(500),
+  PRIMARY KEY (id),
+  CONSTRAINT uk_cus_book_no UNIQUE (book_no),
+  CONSTRAINT uk_cus_book_biz UNIQUE (biz_no, source)
+);
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_row (
+  id BIGINT NOT NULL,
+  book_no VARCHAR(40),
+  row_no INT,
+  entry_id VARCHAR(64),
+  declare_qty DECIMAL(14,2),
+  signed_qty DECIMAL(14,2),
+  device_kind VARCHAR(32),
+  ship_name VARCHAR(128),
+  status INT,
+  intake_seq INT DEFAULT 1,
+  back_reason VARCHAR(255),
+  del_flag INT DEFAULT 0,
+  create_by VARCHAR(64),
+  create_time DATETIME,
+  update_by VARCHAR(64),
+  update_time DATETIME,
+  remark VARCHAR(500),
+  PRIMARY KEY (id),
+  CONSTRAINT uk_cus_row_no UNIQUE (book_no, row_no),
+  CONSTRAINT uk_cus_entry UNIQUE (book_no, entry_id)
+);
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_kind_rule (
+  id BIGINT NOT NULL,
+  kind_code VARCHAR(32),
+  kind_name VARCHAR(64),
+  status INT DEFAULT 0,
+  del_flag INT DEFAULT 0,
+  create_by VARCHAR(64),
+  create_time DATETIME,
+  update_by VARCHAR(64),
+  update_time DATETIME,
+  remark VARCHAR(500),
+  PRIMARY KEY (id),
+  CONSTRAINT uk_cus_kind_code UNIQUE (kind_code)
+);
+
 CREATE TABLE IF NOT EXISTS t_heri_bl_rule (
   id BIGINT NOT NULL,
   rule_code VARCHAR(32),

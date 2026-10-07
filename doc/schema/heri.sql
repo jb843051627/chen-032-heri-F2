@@ -167,6 +167,67 @@ CREATE TABLE IF NOT EXISTS t_heri_job_row (
   UNIQUE KEY uk_job_row (job_no, row_no) COMMENT '同作业号行次不重，幂等重交不重复落'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='签发作业行';
 
+-- 报关核放册子：货代每天整串丢表，一串一头；行次册上排，重复进门只照面不翻账。
+CREATE TABLE IF NOT EXISTS t_heri_cus_book (
+  id bigint NOT NULL COMMENT '主键',
+  book_no varchar(40) DEFAULT NULL COMMENT '册号(一串一号，系统发)',
+  biz_no varchar(64) DEFAULT NULL COMMENT '串的业务键(总单号/清单号，同键同来源再进=照面)',
+  source varchar(64) DEFAULT NULL COMMENT '来源(船代/平台，只记不判；两家各录各的留两串)',
+  declare_rows int DEFAULT NULL COMMENT '串头那格报的行数(空按150)，原样入册',
+  in_rows int DEFAULT '0' COMMENT '进门行数(逐行定去向那一趟累计)',
+  signed_rows int DEFAULT '0' COMMENT '签下行数',
+  back_rows int DEFAULT '0' COMMENT '退回行数',
+  received_flag int DEFAULT '0' COMMENT '收讫记是否出过 0否1是(空册/照面/续办不出)',
+  status int DEFAULT '0' COMMENT '册子状态 0在册 1封住(全签下)',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除(存量行一条不减)',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_cus_book_no (book_no) COMMENT '册号唯一，第二遍同号进门只照面',
+  UNIQUE KEY uk_cus_book_biz (biz_no, source) COMMENT '同业务键同来源只立一册；船代平台各录各的'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='报关核放册子';
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_row (
+  id bigint NOT NULL COMMENT '主键',
+  book_no varchar(40) DEFAULT NULL COMMENT '册号',
+  row_no int DEFAULT NULL COMMENT '行次(册上在本串内排，落定终身不改)',
+  entry_id varchar(64) DEFAULT NULL COMMENT '报关单号(续报凭它认行)',
+  declare_qty decimal(14,2) DEFAULT NULL COMMENT '申报件数(缺不办，不当零)',
+  signed_qty decimal(14,2) DEFAULT NULL COMMENT '册上实签件数(缺不办，不当零)',
+  device_kind varchar(32) DEFAULT NULL COMMENT '箱型(空=没写，不当都可以)',
+  ship_name varchar(128) DEFAULT NULL COMMENT '船名航次',
+  status int DEFAULT NULL COMMENT '行状态 0待办 1已签 2退回(已签终态，不回待办)',
+  intake_seq int DEFAULT '1' COMMENT '进门趟次(头趟1，续办递增)',
+  back_reason varchar(255) DEFAULT NULL COMMENT '退回原因/差异(如 少2件)',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_cus_row_no (book_no, row_no) COMMENT '同串行次不重；续办用原号，不另落',
+  UNIQUE KEY uk_cus_entry (book_no, entry_id) COMMENT '同串报关单号唯一，重复进门不另起记录'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='报关核放册子行';
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_kind_rule (
+  id bigint NOT NULL COMMENT '主键',
+  kind_code varchar(32) DEFAULT NULL COMMENT '箱型代码(白名单按此值核)',
+  kind_name varchar(64) DEFAULT NULL COMMENT '箱型名称',
+  status int DEFAULT '0' COMMENT '规则状态 0启用 1撤下',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_cus_kind_code (kind_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='箱型校验规则';
+
 CREATE TABLE IF NOT EXISTS t_heri_set_row (
   id bigint NOT NULL COMMENT '主键',
   item_no varchar(64) DEFAULT NULL COMMENT '条目编号',
@@ -203,4 +264,11 @@ INSERT IGNORE INTO t_heri_adv_base (id, grade_code, grade_name, th1_max, th2_max
 VALUES (0, 'GB00', '处置直改档：改单金额在 500 元以内（示例行）', 500.00, 2000.00, 5000.00, 0, 0, 'seed', NOW()),
        (1, 'GB01', '处置直改档：改单金额在 500 元以内（在用行）', 500.00, 2000.00, 5000.00, 0, 0, 'seed', NOW()),
        (2, 'GB02', '处置复核档：改单金额 500 元至 2000 元（停用行）', 500.00, 2000.00, 5000.00, 1, 0, 'seed', NOW());
+
+-- 箱型白名单：进门解析逐行核，在册且启用(status=0)才算合；箱型格空着=没写，照样不合。
+INSERT IGNORE INTO t_heri_cus_kind_rule (id, kind_code, kind_name, status, del_flag, create_by, create_time)
+VALUES (1, '20GP', '20 尺普通箱', 0, 0, 'seed', NOW()),
+       (2, '40GP', '40 尺普通箱', 0, 0, 'seed', NOW()),
+       (3, '40HQ', '40 尺高箱', 0, 0, 'seed', NOW()),
+       (4, '45HQ', '45 尺高箱(已撤)', 1, 0, 'seed', NOW());
 
