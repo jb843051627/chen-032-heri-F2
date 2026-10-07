@@ -186,6 +186,81 @@ CREATE TABLE IF NOT EXISTS t_heri_set_row (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='单证对齐条目';
 
+-- ======================================================================
+-- 报关行导表「整串进门」并列路（cus-string 形状，2026-10 立）
+-- 与 t_heri_bl_row 老批量路并列：老路入参与返回冻结不改；存量行一条不减。
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS t_heri_dev_kind_rule (
+  id bigint NOT NULL COMMENT '主键',
+  device_kind varchar(32) DEFAULT NULL COMMENT '箱型(20GP/40GP/40HQ/45HQ 等)',
+  status int DEFAULT NULL COMMENT '状态 0启用 1撤下',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_device_kind (device_kind) COMMENT '一个箱型一条校验规则'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='箱型校验规则';
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_book (
+  id bigint NOT NULL COMMENT '主键',
+  book_no varchar(32) DEFAULT NULL COMMENT '串号(册上发)',
+  declared_rows int DEFAULT NULL COMMENT '串头写着的行数(空着按150；隔年仍可查当初报的行数)',
+  received_rows int DEFAULT NULL COMMENT '进门笔数(逐行定去向那一趟计：签下+退回)',
+  signed_rows int DEFAULT NULL COMMENT '签下笔数',
+  rejected_rows int DEFAULT NULL COMMENT '退回笔数(申报实签不等/缺一不办)',
+  blocked_rows int DEFAULT NULL COMMENT '门口拦回笔数(箱型不合，不落册，不进三笔)',
+  last_row_no int DEFAULT NULL COMMENT '本串已排到的行次(续办接着发)',
+  status int DEFAULT NULL COMMENT '串状态 0在办 1办结(在册行全部有终向；空串进门即办结)',
+  empty_book int DEFAULT '0' COMMENT '是否空册 0否 1是(空串：回执只写空册，无收讫)',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_cus_book_no (book_no) COMMENT '一个串号在册上只占一行'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='报关串头';
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_row (
+  id bigint NOT NULL COMMENT '主键',
+  book_no varchar(32) DEFAULT NULL COMMENT '串号',
+  row_no int DEFAULT NULL COMMENT '行次(册上在本串内排1..N，无手输；退行补报认原号)',
+  bl_no varchar(64) DEFAULT NULL COMMENT '提单号',
+  declare_qty int DEFAULT NULL COMMENT '申报件数(空=没写，缺即不办，不当零)',
+  signed_qty int DEFAULT NULL COMMENT '册上实签件数(空=没写，缺即不办，不当零)',
+  device_kind varchar(32) DEFAULT NULL COMMENT '箱型(门口已核过)',
+  status int DEFAULT NULL COMMENT '行去向 0待签 1已签 2退回',
+  reject_reason varchar(255) DEFAULT NULL COMMENT '退回原因(如 少2件/多1件/申报件数没写)',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除(存量行一条不减)',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_cus_row (book_no, row_no) COMMENT '同串行次不重，补报认原号、重交不重复落'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='报关册上行';
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_block (
+  id bigint NOT NULL COMMENT '主键',
+  book_no varchar(32) DEFAULT NULL COMMENT '串号(拦回也记在来的那串头上)',
+  block_no int DEFAULT NULL COMMENT '门口拦回序号(仅门内计数，不占册上行次)',
+  bl_no varchar(64) DEFAULT NULL COMMENT '提单号(原样)',
+  declare_qty int DEFAULT NULL COMMENT '申报件数(原样)',
+  signed_qty int DEFAULT NULL COMMENT '实签件数(原样)',
+  device_kind varchar(32) DEFAULT NULL COMMENT '箱型(原样，含空)',
+  reason varchar(255) DEFAULT NULL COMMENT '拦回原因(箱型不合(xx)/箱型没写)',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='整串进门门口拦回明细';
+
 -- 初始档案数据（id=0 示例行 / id=1 在用行 / id=2 停用行）
 -- 判定档册与处置档册各留三行，供按 id 取档的各环节使用；
 -- 档案表缺行会让 insert 直接判 0
@@ -203,4 +278,12 @@ INSERT IGNORE INTO t_heri_adv_base (id, grade_code, grade_name, th1_max, th2_max
 VALUES (0, 'GB00', '处置直改档：改单金额在 500 元以内（示例行）', 500.00, 2000.00, 5000.00, 0, 0, 'seed', NOW()),
        (1, 'GB01', '处置直改档：改单金额在 500 元以内（在用行）', 500.00, 2000.00, 5000.00, 0, 0, 'seed', NOW()),
        (2, 'GB02', '处置复核档：改单金额 500 元至 2000 元（停用行）', 500.00, 2000.00, 5000.00, 1, 0, 'seed', NOW());
+
+-- 整串进门箱型校验档：标准箱型放行，id=9 为撤下行（门口只认启用档）
+INSERT IGNORE INTO t_heri_dev_kind_rule (id, device_kind, status, del_flag, create_by, create_time, remark)
+VALUES (1, '20GP', 0, 0, 'seed', NOW(), '在用行'),
+       (2, '40GP', 0, 0, 'seed', NOW(), '在用行'),
+       (3, '40HQ', 0, 0, 'seed', NOW(), '在用行'),
+       (4, '45HQ', 0, 0, 'seed', NOW(), '在用行'),
+       (9, '99XX', 1, 0, 'seed', NOW(), '撤下行：门口不认');
 

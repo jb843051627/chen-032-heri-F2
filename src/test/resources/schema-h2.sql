@@ -128,3 +128,74 @@ CREATE TABLE IF NOT EXISTS t_heri_bl_rule (
   remark VARCHAR(500),
   PRIMARY KEY (id)
 );
+
+-- 整串进门并列路：串头 / 册上行 / 门口拦回 / 箱型校验规则
+CREATE TABLE IF NOT EXISTS t_heri_cus_book (
+  id BIGINT NOT NULL,
+  book_no VARCHAR(32),
+  declared_rows INT,
+  received_rows INT,
+  signed_rows INT,
+  rejected_rows INT,
+  blocked_rows INT,
+  last_row_no INT,
+  status INT,
+  empty_book INT DEFAULT 0,
+  del_flag INT DEFAULT 0,
+  create_by VARCHAR(64),
+  create_time DATETIME,
+  update_by VARCHAR(64),
+  update_time DATETIME,
+  remark VARCHAR(500),
+  PRIMARY KEY (id),
+  CONSTRAINT uk_cus_book_no UNIQUE (book_no)
+);
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_row (
+  id BIGINT NOT NULL,
+  book_no VARCHAR(32),
+  row_no INT,
+  bl_no VARCHAR(64),
+  declare_qty INT,
+  signed_qty INT,
+  device_kind VARCHAR(32),
+  status INT,
+  reject_reason VARCHAR(255),
+  del_flag INT DEFAULT 0,
+  create_by VARCHAR(64),
+  create_time DATETIME,
+  update_by VARCHAR(64),
+  update_time DATETIME,
+  remark VARCHAR(500),
+  PRIMARY KEY (id),
+  CONSTRAINT uk_cus_row UNIQUE (book_no, row_no)
+);
+
+CREATE TABLE IF NOT EXISTS t_heri_cus_block (
+  id BIGINT NOT NULL,
+  book_no VARCHAR(32),
+  block_no INT,
+  bl_no VARCHAR(64),
+  declare_qty INT,
+  signed_qty INT,
+  device_kind VARCHAR(32),
+  reason VARCHAR(255),
+  del_flag INT DEFAULT 0,
+  create_by VARCHAR(64),
+  create_time DATETIME,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS t_heri_dev_kind_rule (
+  id BIGINT NOT NULL,
+  device_kind VARCHAR(32),
+  status INT,
+  del_flag INT DEFAULT 0,
+  create_by VARCHAR(64),
+  create_time DATETIME,
+  update_by VARCHAR(64),
+  update_time DATETIME,
+  remark VARCHAR(500),
+  PRIMARY KEY (id),
+  CONSTRAINT uk_device_kind UNIQUE (device_kind)
+);

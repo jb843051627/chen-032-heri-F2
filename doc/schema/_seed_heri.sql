@@ -14,3 +14,11 @@ INSERT IGNORE INTO t_heri_adv_base (id, grade_code, grade_name, th1_max, th2_max
 VALUES (0, 'GB00', '处置直改档：改单金额在 500 元以内（示例行）', 500.00, 2000.00, 5000.00, 0, 0, 'seed', NOW()),
        (1, 'GB01', '处置直改档：改单金额在 500 元以内（在用行）', 500.00, 2000.00, 5000.00, 0, 0, 'seed', NOW()),
        (2, 'GB02', '处置复核档：改单金额 500 元至 2000 元（停用行）', 500.00, 2000.00, 5000.00, 1, 0, 'seed', NOW());
+
+-- 整串进门箱型校验档：标准箱型放行，99XX 为撤下行（门口只认启用档）
+INSERT IGNORE INTO t_heri_dev_kind_rule (id, device_kind, status, del_flag, create_by, create_time, remark)
+VALUES (1, '20GP', 0, 0, 'seed', NOW(), '在用行'),
+       (2, '40GP', 0, 0, 'seed', NOW(), '在用行'),
+       (3, '40HQ', 0, 0, 'seed', NOW(), '在用行'),
+       (4, '45HQ', 0, 0, 'seed', NOW(), '在用行'),
+       (9, '99XX', 1, 0, 'seed', NOW(), '撤下行：门口不认');
